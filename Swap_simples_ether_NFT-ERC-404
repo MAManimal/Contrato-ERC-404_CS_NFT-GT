@@ -1,0 +1,69 @@
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.0;
+
+// Contrato do Comprador
+contract CompradorContract {
+    mapping(address => string) public carteiras;
+    mapping(address => uint256) public etherDepositado;
+    mapping(address => bool) public possuiNFT;
+
+    event ConfirmacaoEtherEnviado(address indexed carteiraDestino, uint256 quantidade, uint256 timestamp);
+
+    function setCarteiraPublica(string memory carteira) public {
+        carteiras[msg.sender] = carteira;
+    }
+
+    function depositarEther() public payable {
+        etherDepositado[msg.sender] += msg.value;
+    }
+
+    function depositarNFT() public {
+        possuiNFT[msg.sender] = true;
+    }
+
+    function confirmarEtherEnviado(address carteiraDestino, uint256 quantidade) public {
+        emit ConfirmacaoEtherEnviado(carteiraDestino, quantidade, block.timestamp);
+    }
+
+    function possuiNFTDisponivel() public view returns (bool) {
+        return possuiNFT[msg.sender];
+    }
+}
+
+// Contrato de Token ERC-404
+contract TokenERC404 {
+    mapping(address => uint256) public tokens;
+
+    function transferirTokens(address carteiraDestino, uint256 quantidade) public {
+        tokens[carteiraDestino] += quantidade;
+    }
+}
+
+// Contrato de Negociação
+contract Negociacao {
+    CompradorContract public comprador;
+    TokenERC404 public token;
+    address public proprietario;
+
+    event TokensGerados(address indexed comprador, uint256 quantidade, uint256 tempoLimite);
+
+    constructor(address _comprador, address _token, address _proprietario) {
+        comprador = CompradorContract(_comprador);
+        token = TokenERC404(_token);
+        proprietario = _proprietario;
+    }
+
+    function negociar() public {
+        require(comprador.possuiNFTDisponivel(), "Comprador não possui NFT disponível");
+
+        // Chamar a função de transferência de tokens do contrato TokenGenerationContract
+        token.transferirTokens(address(this), 1); // Supondo que 1 NFT equivale a 1 token
+
+        // Emitir evento para confirmar o envio de Ether para o proprietário
+        uint256 quantidadeEtherNecessaria = 1; // Supondo que 1 NFT equivale a 1 Ether
+        comprador.confirmarEtherEnviado(proprietario, quantidadeEtherNecessaria);
+
+        // Emitir evento de geração de tokens
+        emit TokensGerados(address(comprador), 1, block.timestamp);
+    }
+}
